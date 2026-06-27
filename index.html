@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Swift Package Manifest Builder — Package.swift Generator</title>
+<meta name="description" content="Generate Package.swift files visually. Configure platforms, products, targets, and dependencies for Swift packages. Supports Swift 5.5–6.0, binary targets, macros, and registry dependencies. Free, browser-only." />
+<link rel="canonical" href="https://swift-package-manifest-builder.vercel.app/" />
+<meta property="og:title" content="Swift Package Manifest Builder" />
+<meta property="og:description" content="Build Package.swift files visually — platforms, products, targets, dependencies. Supports binary targets, macros, and registry packages. Free, browser-only." />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Swift Package Manifest Builder" />
+<meta name="twitter:description" content="Generate Package.swift files visually. Supports Swift 5.5–6.0. Free." />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"Swift Package Manifest Builder","url":"https://swift-package-manifest-builder.vercel.app/","description":"Visual generator for Swift Package Manager Package.swift manifest files. Configure platforms, products, targets, and dependencies with live preview.","applicationCategory":"DeveloperApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+<style>
+  :root{
+    --bg:#0b0c10;--panel:#15171f;--panel2:#1c1f2a;--ink:#eef1f7;--muted:#9aa3b5;
+    --line:#262a36;--accent:#5b8cff;--ok:#34d399;--warn:#fbbf24;--err:#f87171;
+    --radius:14px;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);background:radial-gradient(1100px 600px at 40% -10%,#0d2130 0,transparent 55%),var(--bg)}
+  header{padding:42px 22px 10px;max-width:1100px;margin:0 auto}
+  .badge{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);
+    border:1px solid var(--line);padding:5px 11px;border-radius:999px;background:var(--panel)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok)}
+  h1{font-size:30px;margin:16px 0 6px;letter-spacing:-.4px}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted);max-width:640px}
+  main{max-width:1100px;margin:18px auto 60px;padding:0 22px;display:grid;grid-template-columns:1fr 420px;gap:22px;align-items:start}
+  @media(max-width:900px){main{grid-template-columns:1fr}}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;overflow:hidden}
+  h2{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:0 0 12px;padding:14px 18px 0}
+  .card-body{padding:0 18px 16px}
+  input[type=text],select{background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    border-radius:8px;padding:8px 12px;font:inherit;font-size:14px;outline:none;width:100%}
+  input[type=text]:focus,select:focus{border-color:var(--accent)}
+
+  .header-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .field-block{display:flex;flex-direction:column;gap:5px;flex:1;min-width:140px}
+  .field-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+
+  .list-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+  .list-row select{width:auto;flex:1;min-width:100px}
+  .remove-btn{cursor:pointer;border:1px solid var(--line);border-radius:7px;padding:4px 10px;
+    font:12px/1 inherit;background:none;color:var(--muted);flex:none}
+  .remove-btn:hover{border-color:var(--err);color:var(--err)}
+  .add-btn{cursor:pointer;border:1px dashed var(--line);border-radius:8px;padding:6px 14px;
+    font:13px/1 inherit;font-weight:600;background:none;color:var(--muted);width:100%;margin-top:6px}
+  .add-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+  .dep-card,.target-card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;margin-bottom:10px}
+  .dep-header,.target-header{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .dep-row,.target-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 14px}
+  @media(max-width:600px){.dep-row,.target-fields{grid-template-columns:1fr}}
+
+  .deps-checkboxes{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+  .dep-check{display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--bg);
+    border:1px solid var(--line);border-radius:6px;cursor:pointer;font-size:13px}
+  .dep-check.checked{border-color:var(--accent);background:rgba(91,140,255,.08);color:var(--accent)}
+  .dep-check input{cursor:pointer;accent-color:var(--accent);width:14px;height:14px}
+
+  /* Output */
+  .output-sticky{position:sticky;top:16px}
+  .output-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .output-header{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);gap:10px}
+  .output-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;flex:1}
+  .line-count{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .action-btn{cursor:pointer;border:1px solid var(--line);border-radius:7px;padding:5px 12px;
+    font:12px/1 inherit;font-weight:600;background:none;color:var(--muted)}
+  .action-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .action-btn.primary{background:linear-gradient(180deg,#6b97ff,#4a78ff);border:0;color:#fff}
+  .action-btn.primary:hover{opacity:.92}
+  pre{margin:0;padding:18px;font-size:12.5px;font-family:var(--mono);white-space:pre;
+    color:var(--ink);max-height:600px;overflow:auto;line-height:1.6;tab-size:4}
+
+  .tip-box{background:linear-gradient(135deg,#1a2035 0%,#141825 100%);border:1px solid #2a304a;
+    border-radius:14px;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-top:0}
+  footer{max-width:1100px;margin:0 auto;padding:0 22px 50px;color:#6b7385;font-size:12.5px;grid-column:1/-1}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <span class="badge"><span class="dot"></span>Swift 5.5–6.0 · Binary targets · Macros · Registry · browser-only</span>
+  <h1>Swift Package <span>Manifest Builder</span></h1>
+  <p class="sub">Build your <code>Package.swift</code> visually — configure platforms, products, dependencies, and targets, then copy or download the finished manifest.</p>
+</header>
+<main>
+
+<!-- Left: configuration -->
+<div>
+
+  <!-- Package basics -->
+  <div class="card">
+    <h2>Package</h2>
+    <div class="card-body">
+      <div class="header-row">
+        <div class="field-block">
+          <label class="field-label">Package Name</label>
+          <input id="packageName" type="text" placeholder="MyAwesomePackage" />
+        </div>
+        <div class="field-block" style="max-width:180px">
+          <label class="field-label">Swift Tools Version</label>
+          <select id="swiftToolsVersion">
+            <option value="6.0">6.0</option>
+            <option value="5.10" selected>5.10</option>
+            <option value="5.9">5.9</option>
+            <option value="5.8">5.8</option>
+            <option value="5.7">5.7</option>
+            <option value="5.6">5.6</option>
+            <option value="5.5">5.5</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Platforms -->
+  <div class="card">
+    <h2>Platform Constraints</h2>
+    <div class="card-body">
+      <div id="platformList"></div>
+      <button class="add-btn" onclick="addPlatform()">+ Add Platform</button>
+    </div>
+  </div>
+
+  <!-- Dependencies -->
+  <div class="card">
+    <h2>Package Dependencies</h2>
+    <div class="card-body">
+      <div id="depList"></div>
+      <button class="add-btn" onclick="addDependency()">+ Add Dependency</button>
+    </div>
+  </div>
+
+  <!-- Targets -->
+  <div class="card">
+    <h2>Targets</h2>
+    <div class="card-body">
+      <div id="targetList"></div>
+      <button class="add-btn" onclick="addTarget()">+ Add Target</button>
+    </div>
+  </div>
+
+  <!-- Products -->
+  <div class="card">
+    <h2>Products</h2>
+    <div class="card-body">
+      <div id="productList"></div>
+      <button class="add-btn" onclick="addProduct()">+ Add Product</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Right: output -->
+<div class="output-sticky">
+  <div class="output-card">
+    <div class="output-header">
+      <span class="output-title">Package.swift</span>
+      <span class="line-count" id="lineCount">—</span>
+      <button class="action-btn" id="copyBtn" onclick="copyManifest()">Copy Package.swift</button>
+      <button class="action-btn primary" onclick="downloadManifest()">↓ Download</button>
+    </div>
+    <pre id="manifestOutput">// swift-tools-version: 5.10
+import PackageDescription
+
+let package = Package(
+    name: "MyPackage"
+)</pre>
+  </div>
+
+  <div class="tip-box" style="margin-top:14px">
+    <div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:4px">✦ Support this project</div>
+      <div style="color:#9aa3b5;font-size:13px">Free tool by Orb Intelligence.</div>
+    </div>
+    <a href="https://buy.stripe.com/4gM28t2xG3SngLvbiY6wE01" target="_blank" rel="noopener"
+      style="display:inline-block;background:linear-gradient(180deg,#6b97ff,#4a78ff);color:#fff;font-weight:650;font-size:14px;padding:10px 20px;border-radius:10px;text-decoration:none;white-space:nowrap">
+      Support · $9.90
+    </a>
+  </div>
+</div>
+
+<footer>
+  Built by <b>Orb Intelligence</b>. All data saved locally in your browser. Always test your <code>Package.swift</code> with <code>swift package resolve</code> before committing.
+  <br><br>
+  More free tools:
+  <a href="https://appstore-metadata-auditor.vercel.app/" rel="noopener">Metadata Auditor</a> ·
+  <a href="https://ios-privacy-policy-generator.vercel.app/" rel="noopener">Privacy Policy Generator</a> ·
+  <a href="https://ios-app-review-generator.vercel.app/" rel="noopener">Review Responder</a> ·
+  <a href="https://appstore-screenshot-generator-theta.vercel.app/" rel="noopener">Screenshot Generator</a> ·
+  <a href="https://appstore-keyword-optimizer.vercel.app/" rel="noopener">Keyword Optimizer</a> ·
+  <a href="https://appstore-release-notes-generator.vercel.app/" rel="noopener">Release Notes Generator</a> ·
+  <a href="https://ios-app-icon-resizer.vercel.app/" rel="noopener">Icon Resizer</a> ·
+  <a href="https://appstore-submission-checklist.vercel.app/" rel="noopener">Submission Checklist</a> ·
+  <a href="https://ios-privacy-manifest-generator.vercel.app/" rel="noopener">Privacy Manifest Generator</a> ·
+  <a href="https://ios-entitlements-generator.vercel.app/" rel="noopener">Entitlements Generator</a> ·
+  <a href="https://testflight-feedback-organizer.vercel.app/" rel="noopener">Beta Feedback Organizer</a> ·
+  <a href="https://appstore-localization-helper.vercel.app/" rel="noopener">Localization Helper</a> ·
+  <a href="https://appstore-age-rating-calculator.vercel.app/" rel="noopener">Age Rating Calculator</a> ·
+  <a href="https://ios-iap-configurator.vercel.app/" rel="noopener">IAP Configurator</a> ·
+  <a href="https://ios-push-payload-builder.vercel.app/" rel="noopener">Push Payload Builder</a> ·
+  <a href="https://xcode-build-phase-generator.vercel.app/" rel="noopener">Build Phase Generator</a> ·
+  <a href="https://ios-url-scheme-tester.vercel.app/" rel="noopener">URL Scheme Tester</a> ·
+  <a href="https://swift-package-manifest-builder.vercel.app/" rel="noopener">SPM Manifest Builder</a>
+</footer>
+
+</main>
+<script src="builder.js"></script>
+</body>
+</html>
